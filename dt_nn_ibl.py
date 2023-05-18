@@ -6,6 +6,8 @@ from sklearn.preprocessing import LabelEncoder,  MinMaxScaler, StandardScaler, K
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
+from sklearn import tree
+import graphviz
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.metrics import accuracy_score
@@ -20,8 +22,7 @@ with open('bridges_version1.csv', newline='') as f:
 
 for i in range(len(a_list)):
     a_list[i] = a_list[i][1:5]
-# for i in a_list:
-#     i = i[1:5]
+
 
 with open('a_list.csv', 'w', newline='') as f:
     writer = csv.writer(f)
@@ -47,16 +48,16 @@ print("\n")
 
 a_list_enc_m = pd.read_csv('a_list_enc.csv')
 min_max_scaler = MinMaxScaler()
-a_list_enc_m.iloc[:, :1] = min_max_scaler.fit_transform(
-    a_list_enc_m.iloc[:, :1])
-print(a_list_enc_m.head())
+columns_to_normalize = a_list_enc_m.columns[~a_list_enc_m.columns.isin([a_list_enc_m.columns[1]])]
+a_list_enc_m[columns_to_normalize] = min_max_scaler.fit_transform(a_list_enc_m[columns_to_normalize])
+print(a_list_enc_m)
 print("\n")
-
 
 # 2.2
 a_list_enc_s = pd.read_csv('a_list_enc.csv')
 scaler = StandardScaler()
-a_list_enc_s.iloc[:, 1:] = scaler.fit_transform(a_list_enc_s.iloc[:, 1:])
+columns_to_scale = a_list_enc_s.columns[~a_list_enc_s.columns.isin([a_list_enc_s.columns[1]])]
+a_list_enc_s[columns_to_scale] = scaler.fit_transform(a_list_enc_s[columns_to_scale])
 print(a_list_enc_s.head())
 a_list_enc_s.to_csv('a_list_enc_norm.csv', index=False)
 print("\n")
@@ -76,23 +77,40 @@ print("Y_test:", Y_test)
 
 # 4
 clf = MLPClassifier(hidden_layer_sizes=(30,))
-Y_train = Y_train.astype(int)
 clf.fit(X_train, Y_train)
 predictions = clf.predict(X_test)
-Y_test = Y_test.astype(int)
 accuracy = clf.score(X_test, Y_test)
 print('Accuracy: ', accuracy)
 
 # 4.1
-clf = MLPClassifier(hidden_layer_sizes=(10,))
-clf.fit(X_train, Y_train)
-accuracy = clf.score(X_test, Y_test)
-print('Accuracy: ', accuracy)
 
-clf = MLPClassifier(hidden_layer_sizes=(10, 10, 10))
-clf.fit(X_train, Y_train)
-accuracy = clf.score(X_test, Y_test)
-print('Accuracy: ', accuracy)
+hidden_nodes = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+
+for hidden_node in hidden_nodes:
+    clf = MLPClassifier(hidden_layer_sizes=(hidden_node,), max_iter=1000)
+    clf.fit(X_train, Y_train)
+    accuracy = clf.score(X_test, Y_test)
+    print(f'Hidden nodes: {hidden_node}, Accuracy: {accuracy}')
+
+
+hidden_layer_configs = [
+    (5, 5, 5),
+    (10, 10, 10),
+    (15, 15, 15),
+    (20, 20, 20),
+    (25, 25, 25),
+    (30, 30, 30),
+    (35, 35, 35),
+    (40, 40, 40),
+    (45, 45, 45),
+    (50, 50, 50)
+]
+
+for config in hidden_layer_configs:
+    clf = MLPClassifier(hidden_layer_sizes=config, max_iter=1000)
+    clf.fit(X_train, Y_train)
+    accuracy = clf.score(X_test, Y_test)
+    print(f'Hidden layer configuration: {config}, Accuracy: {accuracy}')
 
 
 # 4.2
@@ -213,11 +231,9 @@ for criterion in criteria:
 
 # 6.2
 
-
-# 이전에 학습한 DecisionTreeClassifier 객체 clf를 사용합니다.
-dot_data = export_graphviz(clf, out_file=None, filled=True, rounded=True, special_characters=True)
-graph = pydotplus.graph_from_dot_data(dot_data)
-Image(graph.create_png())
+dot_data = tree.export_graphviz(clf, out_file=None, feature_names=a_list_enc_disc.columns[:-1], class_names=True, filled=True, rounded=True, special_characters=True)
+graph = graphviz.Source(dot_data)
+graph.render("decision_tree") 
 
 
 # 6.3
@@ -292,7 +308,7 @@ plt.title('Accuracy for different weights')
 plt.show()
 
 #7.3
-p_values = [1, 2]  # 1: 맨하탄 거리, 2: 유클리디언 거리
+p_values = [1, 2] 
 p_accuracies = []
 
 for p in p_values:
@@ -302,18 +318,9 @@ for p in p_values:
     accuracy = accuracy_score(Y_test, predictions)
     p_accuracies.append(accuracy)
 
-# 결과 비교를 위해 막대 그래프 그리기
 plt.bar(['Manhattan', 'Euclidean'], p_accuracies)
 plt.xlabel('Distance Metric')
 plt.ylabel('Accuracy')
 plt.title('Accuracy for different distance metrics')
 plt.show()
 
-# p 값을 1 (맨하탄 거리)과 2 (유클리디언 거리)로 변경하면서 알고리즘을 실행하고, 
-# 결과를 막대 그래프로 비교합니다.
-# 이 스크립트를 사용하여 세 가지 실험을 수행할 수 있습니다. 
-# 첫 번째 실험에서는 n_neighbors 값을 변경하여 최적의 값을 찾습니다. 
-# 두 번째 실험에서는 가중치 옵션을 변경하여 uniform과 distance 간의 성능을 비교합니다. 
-# 마지막으로 세 번째 실험에서는 거리 측정 방법을 변경하여 맨하탄 거리와 유클리디언 거리 간의 성능을 비교합니다.
-# 실험을 통해 얻은 결과를 분석하여 최적의 하이퍼파라미터 값을 결정할 수 있습니다. 
-# 이를 통해 K-최근접 이웃(KNN) 알고리즘의 성능을 최적화할 수 있습니다.
